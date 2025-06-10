@@ -1,1 +1,560 @@
+{% extends "base.html" %}
 
+{% block title %}URL Security Checker - Detect Phishing & Malicious URLs{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold">Analyze URL Security</h1>
+            <p class="lead">Check any URL for phishing attempts, typosquatting, and security vulnerabilities</p>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="url-form" method="post">
+                    <div class="mb-3">
+                        <label for="url" class="form-label">Enter URL to analyze:</label>
+                        <div class="input-group">
+                            <input type="url" class="form-control form-control-lg" id="url" name="url" 
+                                placeholder="https://example.com" required>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-search me-2"></i>Analyze
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="loader" class="my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Analyzing URL security... Please wait.</p>
+        </div>
+
+        <div id="results-container" class="mt-4" style="display: none;">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5" id="about">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3><i class="bi bi-shield-lock me-2"></i>How It Works</h3>
+                <p>Our URL Security Checker performs comprehensive analysis without relying on third-party APIs:</p>
+                <ul>
+                    <li><strong>URL Component Analysis</strong> - Examines domain structure and patterns</li>
+                    <li><strong>Typosquatting Detection</strong> - Identifies URL similarities to popular brands</li>
+                    <li><strong>WHOIS Verification</strong> - Analyzes domain registration details</li>
+                    <li><strong>SSL Certificate Checking</strong> - Verifies website encryption security</li>
+                    <li><strong>Blacklist Comparison</strong> - Checks against known phishing sites</li>
+                    <li><strong>Redirection Analysis</strong> - Detects suspicious forwarding chains</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3><i class="bi bi-question-circle me-2"></i>Why Use Our Tool?</h3>
+                <p>Unlike other security checkers, our solution:</p>
+                <ul>
+                    <li><strong>No API Dependencies</strong> - Works without third-party services</li>
+                    <li><strong>Fast Results</strong> - Get security analysis in seconds</li>
+                    <li><strong>Comprehensive Checks</strong> - Multiple security verification methods</li>
+                    <li><strong>Privacy-Focused</strong> - Your URL checks aren't shared with external services</li>
+                    <li><strong>Detailed Reports</strong> - Get complete security insights at a glance</li>
+                    <li><strong>Actionable Recommendations</strong> - Practical safety advice for each URL</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlForm = document.getElementById('url-form');
+    const loader = document.getElementById('loader');
+    const resultsContainer = document.getElementById('results-container');
+    
+    urlForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Show loader, hide results
+        loader.style.display = 'block';
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        
+        // Get form data
+        const formData = new FormData(urlForm);
+        
+        try {
+            // Send request to the server
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Server error: ' + response.status);
+            }
+            
+            // Get the JSON data
+            const data = await response.json();
+            
+            // Generate the results HTML
+            const resultsHTML = generateResultsHTML(data);
+            
+            // Update the results container
+            resultsContainer.innerHTML = resultsHTML;
+            
+            // Initialize any charts or interactive elements
+            initializeCharts(data);
+            
+            // Setup accordions and other interactive elements
+            setupInteractions();
+            
+            // Show results, hide loader
+            loader.style.display = 'none';
+            resultsContainer.style.display = 'block';
+            
+            // Scroll to results
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+            
+        } catch (error) {
+            console.error('Error:', error);
+            
+            // Show error message
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Error:</strong> ${error.message || 'Failed to analyze URL. Please try again.'}
+                </div>
+            `;
+            
+            // Show results, hide loader
+            loader.style.display = 'none';
+            resultsContainer.style.display = 'block';
+        }
+    });
+    
+    function generateResultsHTML(data) {
+        // Format the risk level badge
+        let riskBadgeClass = 'bg-safe';
+        let riskIcon = 'bi-shield-check';
+        
+        switch (data.risk_level) {
+            case 'Critical Risk':
+                riskBadgeClass = 'bg-critical';
+                riskIcon = 'bi-exclamation-triangle-fill';
+                break;
+            case 'High Risk':
+                riskBadgeClass = 'bg-high';
+                riskIcon = 'bi-exclamation-triangle';
+                break;
+            case 'Medium Risk':
+                riskBadgeClass = 'bg-medium';
+                riskIcon = 'bi-exclamation-circle';
+                break;
+            case 'Low Risk':
+                riskBadgeClass = 'bg-low';
+                riskIcon = 'bi-info-circle';
+                break;
+            default:
+                riskBadgeClass = 'bg-safe';
+                riskIcon = 'bi-shield-check';
+        }
+        
+        // Format the timestamp
+        const timestamp = new Date(data.timestamp).toLocaleString();
+        
+        // Generate risk factors HTML
+        let riskFactorsHTML = '';
+        if (data.risk_factors && data.risk_factors.length > 0) {
+            riskFactorsHTML = `
+                <div class="mt-3">
+                    <h5>Risk Factors:</h5>
+                    <ul class="list-group">
+                        ${data.risk_factors.map(factor => 
+                            `<li class="list-group-item list-group-item-warning">
+                                <i class="bi bi-exclamation-circle me-2"></i>${factor}
+                            </li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // Generate recommendations HTML
+        let recommendationsHTML = '';
+        if (data.recommendations && data.recommendations.length > 0) {
+            recommendationsHTML = `
+                <div class="mt-3">
+                    <h5>Recommendations:</h5>
+                    <ul class="list-group">
+                        ${data.recommendations.map(rec => 
+                            `<li class="list-group-item list-group-item-info">
+                                <i class="bi bi-lightbulb me-2"></i>${rec}
+                            </li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // Create the details accordions
+        const detailsAccordion = `
+            <div class="accordion mt-4" id="analysisAccordion">
+                <!-- URL Components -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="componentsHeading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#componentsCollapse" aria-expanded="true" aria-controls="componentsCollapse">
+                            <i class="bi bi-link-45deg me-2"></i>URL Components
+                        </button>
+                    </h2>
+                    <div id="componentsCollapse" class="accordion-collapse collapse show" aria-labelledby="componentsHeading">
+                        <div class="accordion-body">
+                            <table class="table table-bordered">
+                                <tr>
+                                    <th>Scheme:</th>
+                                    <td>${data.components.scheme || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Domain:</th>
+                                    <td>${data.components.domain || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th>TLD:</th>
+                                    <td>${data.components.suffix || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Subdomain:</th>
+                                    <td>${data.components.subdomain || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Path:</th>
+                                    <td>${data.components.path || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Query:</th>
+                                    <td>${data.components.query || 'N/A'}</td>
+                                </tr>
+                            </table>
+                            
+                            <div class="alert ${data.components.has_ip_address ? 'alert-danger' : 'alert-success'} mt-2">
+                                <i class="bi ${data.components.has_ip_address ? 'bi-x-circle' : 'bi-check-circle'} me-2"></i>
+                                IP Address in URL: <strong>${data.components.has_ip_address ? 'Yes (Suspicious)' : 'No'}</strong>
+                            </div>
+                            
+                            <div class="alert ${data.components.has_suspicious_tld ? 'alert-warning' : 'alert-success'} mt-2">
+                                <i class="bi ${data.components.has_suspicious_tld ? 'bi-exclamation-circle' : 'bi-check-circle'} me-2"></i>
+                                Suspicious TLD: <strong>${data.components.has_suspicious_tld ? 'Yes' : 'No'}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Typosquatting -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="typosquattingHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#typosquattingCollapse" aria-expanded="false" aria-controls="typosquattingCollapse">
+                            <i class="bi bi-type me-2"></i>Typosquatting Analysis
+                        </button>
+                    </h2>
+                    <div id="typosquattingCollapse" class="accordion-collapse collapse" aria-labelledby="typosquattingHeading">
+                        <div class="accordion-body">
+                            <div class="alert ${data.typosquatting.possible_targets && data.typosquatting.possible_targets.length > 0 ? 'alert-danger' : 'alert-success'}">
+                                <i class="bi ${data.typosquatting.possible_targets && data.typosquatting.possible_targets.length > 0 ? 'bi-x-circle' : 'bi-check-circle'} me-2"></i>
+                                Typosquatting Detected: <strong>${data.typosquatting.possible_targets && data.typosquatting.possible_targets.length > 0 ? 'Yes' : 'No'}</strong>
+                            </div>
+                            
+                            ${data.typosquatting.possible_targets && data.typosquatting.possible_targets.length > 0 ? `
+                                <div class="mt-3">
+                                    <h6>Possible Target Brands:</h6>
+                                    <ul class="list-group">
+                                        ${data.typosquatting.possible_targets.map(target => 
+                                            `<li class="list-group-item list-group-item-danger">
+                                                <i class="bi bi-building me-2"></i>${target}
+                                            </li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- WHOIS Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="whoisHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#whoisCollapse" aria-expanded="false" aria-controls="whoisCollapse">
+                            <i class="bi bi-card-list me-2"></i>WHOIS Information
+                        </button>
+                    </h2>
+                    <div id="whoisCollapse" class="accordion-collapse collapse" aria-labelledby="whoisHeading">
+                        <div class="accordion-body">
+                            ${data.whois.error ? `
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    ${data.whois.error}
+                                </div>
+                            ` : `
+                                <table class="table table-bordered">
+                                    <tr>
+                                        <th>Registrar:</th>
+                                        <td>${data.whois.registrar || 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Registration Date:</th>
+                                        <td>${data.whois.creation_date ? new Date(data.whois.creation_date).toLocaleDateString() : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Expiration Date:</th>
+                                        <td>${data.whois.expiration_date ? new Date(data.whois.expiration_date).toLocaleDateString() : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Last Updated:</th>
+                                        <td>${data.whois.last_updated ? new Date(data.whois.last_updated).toLocaleDateString() : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Domain Age:</th>
+                                        <td>${data.whois.age_days !== null ? `${data.whois.age_days} days` : 'N/A'}</td>
+                                    </tr>
+                                </table>
+                                
+                                <div class="alert ${data.whois.age_days !== null && data.whois.age_days < 30 ? 'alert-warning' : 'alert-info'} mt-2">
+                                    <i class="bi ${data.whois.age_days !== null && data.whois.age_days < 30 ? 'bi-exclamation-circle' : 'bi-info-circle'} me-2"></i>
+                                    ${data.whois.age_days !== null && data.whois.age_days < 30 ? 
+                                        `This domain is very new (${data.whois.age_days} days old). New domains are often used for phishing.` : 
+                                        `Domain age: ${data.whois.age_days !== null ? `${data.whois.age_days} days` : 'Unknown'}`}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SSL Information -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="sslHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#sslCollapse" aria-expanded="false" aria-controls="sslCollapse">
+                            <i class="bi bi-lock me-2"></i>SSL Certificate
+                        </button>
+                    </h2>
+                    <div id="sslCollapse" class="accordion-collapse collapse" aria-labelledby="sslHeading">
+                        <div class="accordion-body">
+                            <div class="alert ${!data.ssl.has_ssl ? 'alert-danger' : (data.ssl.valid ? 'alert-success' : 'alert-warning')}">
+                                <i class="bi ${!data.ssl.has_ssl ? 'bi-shield-exclamation' : (data.ssl.valid ? 'bi-shield-check' : 'bi-shield-exclamation')} me-2"></i>
+                                SSL Certificate: <strong>${!data.ssl.has_ssl ? 'Not Present' : (data.ssl.valid ? 'Valid' : 'Invalid')}</strong>
+                            </div>
+                            
+                            ${data.ssl.has_ssl ? `
+                                <table class="table table-bordered mt-3">
+                                    <tr>
+                                        <th>Issuer:</th>
+                                        <td>${data.ssl.issuer ? (data.ssl.issuer.commonName || data.ssl.issuer.organizationName || 'N/A') : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Subject:</th>
+                                        <td>${data.ssl.subject ? (data.ssl.subject.commonName || 'N/A') : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Expiry Date:</th>
+                                        <td>${data.ssl.expiry_date || 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Days Until Expiry:</th>
+                                        <td>${data.ssl.days_until_expiry !== null ? data.ssl.days_until_expiry : 'N/A'}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Self-Signed:</th>
+                                        <td>${data.ssl.self_signed ? 'Yes (Not Trusted)' : 'No'}</td>
+                                    </tr>
+                                </table>
+                                
+                                <div class="alert ${data.ssl.self_signed ? 'alert-danger' : 'alert-success'} mt-2">
+                                    <i class="bi ${data.ssl.self_signed ? 'bi-x-circle' : 'bi-check-circle'} me-2"></i>
+                                    ${data.ssl.self_signed ? 
+                                        'This certificate is self-signed and not trusted by browsers.' : 
+                                        'This certificate is signed by a trusted certificate authority.'}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Blacklist Checks -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="blacklistHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#blacklistCollapse" aria-expanded="false" aria-controls="blacklistCollapse">
+                            <i class="bi bi-list-check me-2"></i>Blacklist Checks
+                        </button>
+                    </h2>
+                    <div id="blacklistCollapse" class="accordion-collapse collapse" aria-labelledby="blacklistHeading">
+                        <div class="accordion-body">
+                            <div class="alert ${data.blacklists.blacklisted ? 'alert-danger' : 'alert-success'}">
+                                <i class="bi ${data.blacklists.blacklisted ? 'bi-x-circle' : 'bi-check-circle'} me-2"></i>
+                                Blacklisted: <strong>${data.blacklists.blacklisted ? 'Yes' : 'No'}</strong>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <h6>Services Checked:</h6>
+                                <ul class="list-group">
+                                    ${data.blacklists.services_checked.map(service => 
+                                        `<li class="list-group-item">
+                                            <i class="bi bi-check-circle me-2 text-success"></i>${service}
+                                        </li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                            
+                            ${data.blacklists.warnings && data.blacklists.warnings.length > 0 ? `
+                                <div class="alert alert-info mt-3">
+                                    <h6><i class="bi bi-info-circle me-2"></i>Notes:</h6>
+                                    <ul class="mb-0">
+                                        ${data.blacklists.warnings.map(warning => 
+                                            `<li>${warning}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Redirection Analysis -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="redirectionHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#redirectionCollapse" aria-expanded="false" aria-controls="redirectionCollapse">
+                            <i class="bi bi-signpost-split me-2"></i>Redirection Analysis
+                        </button>
+                    </h2>
+                    <div id="redirectionCollapse" class="accordion-collapse collapse" aria-labelledby="redirectionHeading">
+                        <div class="accordion-body">
+                            ${data.redirections && data.redirections.length > 0 ? `
+                                <div class="alert ${data.redirections.length > 1 ? 'alert-warning' : 'alert-success'}">
+                                    <i class="bi ${data.redirections.length > 1 ? 'bi-exclamation-circle' : 'bi-check-circle'} me-2"></i>
+                                    ${data.redirections.length > 1 ? 
+                                        `This URL redirects through ${data.redirections.length} steps.` : 
+                                        'This URL does not redirect.'}
+                                </div>
+                                
+                                ${data.redirections.length > 1 ? `
+                                    <table class="table table-bordered mt-3">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>URL</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${data.redirections.map((step, index) => `
+                                                <tr>
+                                                    <td>${index + 1}</td>
+                                                    <td>${step.url}</td>
+                                                    <td>${step.status_code}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                ` : ''}
+                            ` : `
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Unable to analyze redirections.
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Build the complete results HTML
+        return `
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Security Analysis Results</h3>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">${data.normalized_url}</h4>
+                        <span class="badge ${riskBadgeClass} text-white risk-badge">
+                            <i class="bi ${riskIcon} me-1"></i>${data.risk_level}
+                        </span>
+                    </div>
+                    
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-${data.risk_score < 20 ? 'success' : (data.risk_score < 40 ? 'info' : (data.risk_score < 60 ? 'warning' : 'danger'))}" 
+                             role="progressbar" style="width: ${data.risk_score}%;" 
+                             aria-valuenow="${data.risk_score}" aria-valuemin="0" aria-valuemax="100">
+                            ${data.risk_score}/100
+                        </div>
+                    </div>
+                    
+                    <div class="alert ${data.risk_score < 20 ? 'alert-success' : (data.risk_score < 40 ? 'alert-info' : (data.risk_score < 60 ? 'alert-warning' : 'alert-danger'))}">
+                        <i class="bi ${riskIcon} me-2"></i>
+                        <strong>Risk Score: ${data.risk_score}/100</strong> - ${getSummaryText(data.risk_level)}
+                    </div>
+                    
+                    <div class="small text-muted mt-2 mb-3">
+                        <i class="bi bi-clock me-1"></i>Analyzed on: ${timestamp}
+                    </div>
+                    
+                    ${riskFactorsHTML}
+                    
+                    ${recommendationsHTML}
+                    
+                    <div class="mt-4">
+                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#detailedResults" aria-expanded="false" aria-controls="detailedResults">
+                            <i class="bi bi-chevron-down me-2"></i>Show Detailed Analysis
+                        </button>
+                    </div>
+                    
+                    <div class="collapse mt-3" id="detailedResults">
+                        ${detailsAccordion}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function getSummaryText(riskLevel) {
+        switch (riskLevel) {
+            case 'Critical Risk':
+                return 'This URL shows multiple high-risk indicators and is likely malicious. Do not proceed.';
+            case 'High Risk':
+                return 'This URL has significant security concerns and should be avoided.';
+            case 'Medium Risk':
+                return 'This URL has some suspicious characteristics. Proceed with caution.';
+            case 'Low Risk':
+                return 'This URL has minor security concerns but appears generally trustworthy.';
+            default:
+                return 'This URL appears to be safe based on our analysis.';
+        }
+    }
+    
+    function initializeCharts(data) {
+        // Initialize charts if needed
+    }
+    
+    function setupInteractions() {
+        // Add any interactions, tooltips, etc.
+    }
+});
+</script>
+{% endblock %}
